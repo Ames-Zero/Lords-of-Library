@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f5f1eb;
+  --foreground: #252525;
+  --accent-red: #8b1f1f;
+  --accent-red-light: #a52a2a;
+  --text-muted: #8b8b8b;
+  --border-light: #e8e3dd;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), "Segoe UI", sans-serif;
+}
+
+.sidebar-shell {
+  background: #ffffff;
+  border-right: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+}
+
+.card-dots {
+  background-image: radial-gradient(rgba(0, 0, 0, 0.05) 1.5px, transparent 1.5px);
+  background-size: 14px 14px;
+}
+
+.avatar-dot {
+  height: 16px;
+  width: 16px;
+  border-radius: 9999px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.action-pill {
+  height: 48px;
+  width: 48px;
+  border-radius: 9999px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+  font-size: 18px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-pill:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 767px) {
+  .sidebar-shell {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+}

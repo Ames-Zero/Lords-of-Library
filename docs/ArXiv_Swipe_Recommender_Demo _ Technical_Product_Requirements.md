@@ -336,6 +336,25 @@ The architecture is designed so that the following enhancements can be added lat
 - Real user similarity computation for the connections tab based on overlapping saved papers and topic vectors.
 - A/B testing different bandit algorithms and UI variants.
 
+### 12.1 Progressive Onboarding Expansion (Planned)
+
+Keep the current first-login modal for low-friction initialization, then add an optional full-page onboarding flow that captures richer preference signals for better curation quality.
+
+Proposed full-page onboarding question set:
+
+- Research stage (for example: undergraduate, graduate, industry practitioner, researcher).
+- Primary goal (learning, literature review, implementation, staying current).
+- Preferred depth (high-level summaries vs technical deep dives).
+- Preferred content format (theory-heavy, experiments, code-focused, benchmarks, surveys).
+- Available reading time per session (for example: 5, 15, or 30+ minutes).
+- Discovery strictness (broad exploration vs high precision relevance).
+- Negative preferences (topics to avoid).
+- Cold-start calibration via explicit ratings on a small starter set of papers (for example 10 papers).
+
+Implementation note:
+
+- Keep this flow optional and skippable, store responses in local profile state, and use them as additional ranking priors alongside live swipe feedback.
+
 ---
 
 ## References

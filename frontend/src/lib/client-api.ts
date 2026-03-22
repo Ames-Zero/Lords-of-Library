@@ -67,7 +67,7 @@ export async function fetchNextPapers(): Promise<Paper[]> {
       return mockFeed;
     }
 
-    const papers = (await response.text());
+    const papers = (await response.json()) as BackendPaper[];
     if (!Array.isArray(papers)) {
       console.warn("Feed response was not an array. Using demo data.");
       return mockFeed;

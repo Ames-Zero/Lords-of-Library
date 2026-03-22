@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { DesktopLayoutNav, MobileLayoutNav } from "@/components/layout-nav";
+import { SidebarUser } from "@/components/sidebar-user";
 import { getViewerProfile } from "@/lib/api";
 import "./globals.css";
 
@@ -25,7 +26,6 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const viewer = await getViewerProfile();
-  const avatarFallback = viewer.username.charAt(0).toUpperCase() || "D";
 
   return (
     <html
@@ -44,25 +44,7 @@ export default async function RootLayout({
             </div>
 
             {/* Executive Avatar */}
-            <div className="mb-8 pb-8 border-b border-[#e8e3dd]">
-              <div className="flex items-center gap-3">
-                {viewer.avatarUrl ? (
-                  <img
-                    src={viewer.avatarUrl}
-                    alt={`${viewer.username} avatar`}
-                    className="w-10 h-10 rounded object-cover"
-                  />
-                ) : (
-                  <div className="w-10 h-10 rounded bg-[#8b1f1f] flex items-center justify-center text-white font-bold text-sm">
-                    {avatarFallback}
-                  </div>
-                )}
-                <div>
-                  <div className="text-xs font-bold uppercase tracking-wide text-[#8b8b8b]">Executive Avatar</div>
-                  <div className="text-sm font-semibold text-[#252525]">{viewer.username}</div>
-                </div>
-              </div>
-            </div>
+            <SidebarUser fallbackUsername={viewer.username} avatarUrl={viewer.avatarUrl} />
 
             {/* Navigation */}
             <DesktopLayoutNav />

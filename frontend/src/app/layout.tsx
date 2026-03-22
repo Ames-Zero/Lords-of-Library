@@ -60,7 +60,7 @@ export default async function RootLayout({
 
           {/* Main Content */}
           <main className="flex flex-1 flex-col items-center overflow-hidden bg-[#f5f1eb] p-4 pt-20 pb-28 md:pt-12 md:pb-12 lg:p-12">
-            <div className="h-full w-full max-w-3xl">{children}</div>
+            <div className="h-full min-h-0 w-full min-w-0 max-w-3xl">{children}</div>
           </main>
 
           {/* Mobile Bottom Navigation */}

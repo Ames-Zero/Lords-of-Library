@@ -6,6 +6,200 @@ import { onboardingModalSeenKey, onboardingProfileKey, onboardingTopicsKey } fro
 import { fetchNextPapers, logSwipe } from "@/lib/client-api";
 import type { Paper } from "@/lib/types";
 
+const eli5MaxChars = 200;
+
+function hashPaperId(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i += 1) {
+    h = (h * 31 + id.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
+function truncateAtWord(text: string, maxChars: number): string {
+  const t = text.trim();
+  if (t.length <= maxChars) {
+    return t;
+  }
+  const slice = t.slice(0, maxChars);
+  const lastSpace = slice.lastIndexOf(" ");
+  const cut = lastSpace > Math.floor(maxChars * 0.45) ? lastSpace : maxChars;
+  return `${t.slice(0, cut).trimEnd()}…`;
+}
+
+/** Display-only fields not yet on `Paper`; stable per paper id where applicable. */
+function getPaperCardExtras(paper: Paper) {
+  const h = hashPaperId(paper.id);
+  const methodologySets = [
+    ["Tensor Networks", "Quantum Entropy Analysis"],
+    ["Bayesian Inference", "Monte Carlo Methods"],
+    ["Representation Learning", "Large-Scale Training"],
+    ["Causal Modeling", "Observational Study"],
+    ["Information Geometry", "Variational Bounds"],
+  ] as const;
+  const abstractFirst = paper.abstract.trim();
+  const firstSentenceEnd = abstractFirst.search(/[.!?](\s|$)/);
+  const problemFromAbstract =
+    abstractFirst.length > 20 && firstSentenceEnd > 20
+      ? abstractFirst.slice(0, firstSentenceEnd + 1).trim()
+      : null;
+  const dummyDoi = `10.${1000 + (h % 9000)}/arxiv.${paper.id.replace(/\D/g, "").slice(0, 8) || "placeholder"}`.toUpperCase();
+
+  return {
+    impactScore: 72 + (h % 27),
+    highImpact: h % 4 === 0,
+    methodology: [...methodologySets[h % methodologySets.length]],
+    problem: problemFromAbstract ?? "How does this work advance what we can measure, predict, or build in this field?",
+    eli5:
+      abstractFirst.length > 0
+        ? `In plain language: ${truncateAtWord(abstractFirst, eli5MaxChars)}`
+        : "In plain language: this paper explores ideas in the listed area—open the full text on arXiv for details.",
+    doiDisplay: dummyDoi,
+  };
+}
+
+function FeedPaperCardContent({
+  paper,
+  readMinutes,
+  dense,
+}: {
+  paper: Paper;
+  readMinutes: number;
+  dense?: boolean;
+}) {
+  const extras = getPaperCardExtras(paper);
+  const pad = dense ? "p-3 sm:p-4" : "p-4 sm:p-5 lg:p-6";
+  const footerBleed = dense
+    ? "-mx-3 -mb-3 sm:-mx-4 sm:-mb-4 px-3 sm:px-4"
+    : "-mx-4 -mb-4 sm:-mx-5 sm:-mb-5 lg:-mx-6 lg:-mb-6 px-4 sm:px-5 lg:px-6";
+  const titleClass = dense ? "text-base font-black leading-snug text-[#252525]" : "text-xl font-black leading-snug text-[#252525] sm:text-2xl";
+
+  const publishedLabel = new Date(paper.publishedAt).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  const titleClamp = dense ? "line-clamp-2" : "line-clamp-4";
+
+  return (
+    <div className={`relative flex h-full min-h-0 w-full min-w-0 flex-col ${pad}`}>
+      <div className="pointer-events-none absolute left-0 top-0 h-1 w-20 rounded-br bg-[#8b1f1f]" aria-hidden />
+
+      <div className="shrink-0">
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-1 flex-wrap gap-2">
+            <span className="rounded-full bg-[#8b1f1f]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-[#8b1f1f]">
+              {paper.primaryCategory}
+            </span>
+            {extras.highImpact ? (
+              <span className="rounded-full bg-[#e8e3dd] px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-[#5f5f5f]">
+                High impact
+              </span>
+            ) : null}
+          </div>
+          <div className="w-[120px] shrink-0 text-right">
+            <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#8b8b8b]">Impact score</p>
+            <div className="mt-1 flex items-center gap-2">
+              <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[#e8e3dd]">
+                <div className="h-full rounded-full bg-[#8b1f1f]" style={{ width: `${extras.impactScore}%` }} />
+              </div>
+              <span className="text-xs font-black tabular-nums text-[#8b1f1f]">{extras.impactScore}</span>
+            </div>
+          </div>
+        </header>
+
+        <h2 className={`mt-3 ${titleClass} ${titleClamp}`}>{paper.title}</h2>
+
+        <p className="mt-2 text-xs text-[#8b8b8b]">
+          <time dateTime={paper.publishedAt}>{publishedLabel}</time>
+        </p>
+      </div>
+
+      <div
+        className={`feed-card-scroll mt-3 min-h-0 flex-1 ${dense ? "overflow-y-hidden" : "overflow-y-auto"}`}
+      >
+        <div className="space-y-4">
+          <section>
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#8b1f1f]">The problem</p>
+            <p
+              className={`mt-1.5 font-serif text-sm italic leading-relaxed text-[#3d3d3d] sm:text-[15px] ${dense ? "line-clamp-2" : ""}`}
+            >
+              {extras.problem}
+            </p>
+          </section>
+
+          <section>
+            <div className="flex items-center gap-2">
+              <span
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#8b1f1f] text-[10px] font-black text-white"
+                aria-hidden
+              >
+                e
+              </span>
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#8b1f1f]">ELI5 (explain like I&apos;m 5)</p>
+            </div>
+            <p
+              className={`mt-2 font-serif text-sm italic leading-relaxed text-[#3d3d3d] sm:text-[15px] ${dense ? "line-clamp-3" : ""}`}
+            >
+              {extras.eli5}
+            </p>
+          </section>
+
+          <section>
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#8b1f1f]">Methodology</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {(dense ? extras.methodology.slice(0, 2) : extras.methodology).map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-md border border-[#e8e3dd] bg-[#f5f1eb] px-2.5 py-1 text-xs font-medium text-[#5f5f5f]"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <footer className={`card-dots shrink-0 border-t border-[#e8e3dd] bg-[#faf8f5] py-2.5 sm:py-3 rounded-b-2xl ${footerBleed}`}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 space-y-1 text-[10px] font-bold uppercase tracking-widest text-[#8b8b8b]">
+            <p className="flex items-center gap-1.5">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0" aria-hidden>
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7v5l3 2" />
+              </svg>
+              <span>{readMinutes} min read</span>
+            </p>
+            <p className="flex items-start gap-1.5 font-mono text-[9px] normal-case font-normal tracking-normal text-[#5f5f5f]">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" className="mt-0.5 shrink-0" aria-hidden>
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+              </svg>
+              <span className="min-w-0 break-all leading-snug">{extras.doiDisplay}</span>
+            </p>
+          </div>
+          <a
+            href={paper.arxivUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 rounded-lg p-2 text-[#8b1f1f] transition hover:bg-[#8b1f1f]/10"
+            aria-label="Open paper on arXiv"
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <path d="M15 3h6v6" />
+              <path d="M10 14 21 3" />
+            </svg>
+          </a>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
 const animationDurationMs = 360;
 const swipeThresholdPx = 90;
 const maxDragPreviewPx = 140;
@@ -285,17 +479,6 @@ export function FeedView() {
   const activeDirection = swipeDirection ?? (dragOffsetX > 8 ? "right" : dragOffsetX < -8 ? "left" : null);
   const activeOverlayOpacity = swipeDirection ? 1 : Math.min(Math.abs(dragOffsetX) / maxDragPreviewPx, 1);
 
-  const cardImages = [
-    "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=1170&q=80",
-    "https://images.unsplash.com/photo-1517849845537-4d257902454a?auto=format&fit=crop&w=735&q=80",
-    "https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=662&q=80",
-    "https://images.unsplash.com/photo-1507146426996-ef05306b995a?auto=format&fit=crop&w=987&q=80",
-    "https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=1170&q=80",
-  ];
-
-  const currentImage = cardImages[papers.length % cardImages.length];
-  const nextImage = cardImages[(papers.length + 1) % cardImages.length];
-
   const toggleModalTopic = (topic: string) => {
     setModalTopics((current) =>
       current.includes(topic) ? current.filter((entry) => entry !== topic) : [...current, topic],
@@ -326,97 +509,68 @@ export function FeedView() {
   };
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      {/* Featured Paper Card Stack */}
-      <div className="relative flex-1 min-h-0 overflow-hidden">
+    <div className="flex h-full min-h-0 min-w-0 flex-col overflow-x-hidden">
+      {/* Fixed footprint: fills space above actions; each card is h-full w-full of this region */}
+      <div className="relative min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-hidden overscroll-x-none">
         {papers.length > 0 ? (
-          <>
+          <div className="grid h-full min-h-0 w-full min-w-0 max-w-full grid-cols-1 grid-rows-1 [grid-auto-rows:minmax(0,1fr)] [grid-template-areas:'stack']">
             {papers.length > 1 ? (
               <article
                 key={`next-${papers[1].id}`}
-                className={`absolute inset-0 z-0 overflow-hidden rounded-2xl shadow-sm transition-all duration-300 ease-out select-none ${
+                className={`[grid-area:stack] col-start-1 row-start-1 z-0 box-border flex h-full min-h-0 w-full min-w-0 max-w-full origin-top flex-col rounded-2xl border border-[#e8e3dd] bg-white shadow-sm transition-all duration-300 ease-out select-none ${
                   swipeDirection
                     ? "translate-y-0 scale-100 opacity-100"
                     : "translate-y-3 scale-[0.97] opacity-70"
                 }`}
-                style={{ backgroundImage: `url(${nextImage})`, backgroundSize: "cover", backgroundPosition: "center" }}
                 aria-hidden="true"
               >
-                <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent" />
-                <div className="absolute inset-x-0 bottom-0 p-6 lg:p-7 text-white">
-                  <div className="space-y-2">
-                    <p className="inline-block rounded-full bg-white/20 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white/90">
-                      {papers[1].primaryCategory}
-                    </p>
-                    <h2 className="line-clamp-3 text-2xl font-black leading-tight lg:text-3xl">{papers[1].title}</h2>
-                    <p className="text-sm text-white/85">
-                      {papers[1].authors[0]} • {new Date(papers[1].publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                    </p>
-                    <p className="line-clamp-2 text-sm text-white/80">{papers[1].abstract}</p>
-                  </div>
-                  <div className="mt-4 flex items-center justify-between text-xs font-bold uppercase tracking-widest text-white/80">
-                    <span>Read Time {nextReadTime} min</span>
-                    <span>DQ-2024-0{Math.max(0, papers.length - 1).toString().padStart(3, "0")}</span>
-                  </div>
-                </div>
+                <FeedPaperCardContent paper={papers[1]} readMinutes={nextReadTime} dense />
               </article>
             ) : null}
 
-            <article
-              key={papers[0].id}
-              className="relative z-10 h-full overflow-hidden rounded-2xl shadow-md will-change-transform select-none"
-              style={{ ...getCardStyle(), backgroundImage: `url(${currentImage})`, backgroundSize: "cover", backgroundPosition: "center", touchAction: "pan-y" }}
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerEnd}
-              onPointerCancel={handlePointerCancel}
-            >
-              <div className="absolute inset-0 bg-linear-to-t from-black/75 via-black/15 to-transparent" />
-
-              <div className="pointer-events-none absolute inset-0 z-20">
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    boxShadow:
-                      activeDirection === "right"
-                        ? `inset 0 -80px 60px rgba(45, 150, 45, ${0.45 * activeOverlayOpacity})`
-                        : activeDirection === "left"
-                          ? `inset 0 -80px 60px rgba(224, 83, 83, ${0.45 * activeOverlayOpacity})`
-                          : "none",
-                    transition: isDragging ? "none" : "box-shadow 140ms ease-out",
-                  }}
-                />
-
-                {activeDirection && (
+            {/* Clip transform overflow so swipe does not create page scrollbars */}
+            <div className="[grid-area:stack] col-start-1 row-start-1 z-10 flex h-full min-h-0 w-full min-w-0 max-w-full overflow-hidden rounded-2xl">
+              <article
+                key={papers[0].id}
+                className="relative box-border flex h-full min-h-0 w-full min-w-0 max-w-full flex-col rounded-2xl border border-[#e8e3dd] bg-white shadow-lg will-change-transform select-none"
+                style={{ ...getCardStyle(), touchAction: "pan-y" }}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerEnd}
+                onPointerCancel={handlePointerCancel}
+              >
+                <div className="pointer-events-none absolute inset-0 z-20 rounded-2xl">
                   <div
-                    className="absolute left-1/2 top-1/2 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white/80 bg-black/35 text-4xl text-white"
-                    style={{ opacity: Math.min(0.95, 0.25 + activeOverlayOpacity * 0.7), transition: isDragging ? "none" : "opacity 140ms ease-out" }}
-                  >
-                    {activeDirection === "right" ? "✓" : "✕"}
-                  </div>
-                )}
-              </div>
+                    className="absolute inset-0 rounded-2xl"
+                    style={{
+                      boxShadow:
+                        activeDirection === "right"
+                          ? `inset 0 -80px 60px rgba(45, 150, 45, ${0.45 * activeOverlayOpacity})`
+                          : activeDirection === "left"
+                            ? `inset 0 -80px 60px rgba(224, 83, 83, ${0.45 * activeOverlayOpacity})`
+                            : "none",
+                      transition: isDragging ? "none" : "box-shadow 140ms ease-out",
+                    }}
+                  />
 
-              <div className="absolute inset-x-0 bottom-0 z-10 p-6 lg:p-7 text-white">
-                <div className="space-y-2">
-                  <p className="inline-block rounded-full bg-white/20 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white/90">
-                    {papers[0].primaryCategory}
-                  </p>
-                  <h2 className="line-clamp-3 text-2xl font-black leading-tight lg:text-3xl">{papers[0].title}</h2>
-                  <p className="text-sm text-white/85">
-                    {papers[0].authors[0]} • {new Date(papers[0].publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                  </p>
-                  <p className="line-clamp-2 text-sm text-white/80">{papers[0].abstract}</p>
+                  {activeDirection && (
+                    <div
+                      className="absolute left-1/2 top-1/2 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-[#e8e3dd] bg-white/90 text-4xl text-[#252525] shadow-md"
+                      style={{ opacity: Math.min(0.95, 0.25 + activeOverlayOpacity * 0.7), transition: isDragging ? "none" : "opacity 140ms ease-out" }}
+                    >
+                      {activeDirection === "right" ? "✓" : "✕"}
+                    </div>
+                  )}
                 </div>
-                <div className="mt-4 flex items-center justify-between text-xs font-bold uppercase tracking-widest text-white/80">
-                  <span>Read Time {currentReadTime} min</span>
-                  <span>DQ-2024-0{Math.max(0, papers.length).toString().padStart(3, "0")}</span>
+
+                <div className="relative z-10 flex min-h-0 min-w-0 flex-1 flex-col">
+                  <FeedPaperCardContent paper={papers[0]} readMinutes={currentReadTime} />
                 </div>
-              </div>
-            </article>
-          </>
+              </article>
+            </div>
+          </div>
         ) : (
-          <div className="flex h-full items-center justify-center rounded-2xl bg-[#f2ede6] p-6 text-center">
+          <div className="flex h-full min-h-0 items-center justify-center rounded-2xl bg-[#f2ede6] p-6 text-center">
             <div>
               {isLoadingFeed || isFetchingMore ? (
                 <>

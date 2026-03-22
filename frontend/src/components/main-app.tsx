@@ -12,9 +12,9 @@ export function MainApp() {
   const view = normalizeAppView(searchParams.get("view"));
 
   return (
-    <div className="h-full min-h-0">
+    <div className="h-full min-h-0 min-w-0">
       <div
-        className={view === "feed" ? "h-full min-h-0" : "hidden"}
+        className={view === "feed" ? "h-full min-h-0 min-w-0 overflow-x-hidden" : "hidden"}
         aria-hidden={view !== "feed"}
       >
         <FeedView />

@@ -1,12 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState, useRef } from "react";
-import { mockFeed } from "@/lib/mock-data";
+import { mockFeed, topics } from "@/lib/mock-data";
 
-const onboardingKey = "lol.onboarding.topics";
+const onboardingTopicsKey = "lol.onboarding.topics";
+const onboardingProfileKey = "lol.onboarding.profile";
+const onboardingModalSeenKey = "lol.onboarding.modalSeen";
 
 export default function Home() {
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
+  const [profileName, setProfileName] = useState("");
+  const [modalName, setModalName] = useState("");
+  const [modalTopics, setModalTopics] = useState<string[]>([]);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [isOnboardingLoading, setIsOnboardingLoading] = useState(false);
   const [cardIndex, setCardIndex] = useState(0);
   const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(null);
   const [dragOffsetX, setDragOffsetX] = useState(0);
@@ -16,21 +23,43 @@ export default function Home() {
   const pointerStartX = useRef(0);
   const pointerStartY = useRef(0);
   const activePointerId = useRef<number | null>(null);
+  const onboardingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const animationDurationMs = 360;
   const swipeThresholdPx = 90;
   const maxDragPreviewPx = 140;
 
   useEffect(() => {
-    const raw = window.localStorage.getItem(onboardingKey);
-    if (!raw) {
-      return;
+    const rawTopics = window.localStorage.getItem(onboardingTopicsKey);
+    const rawProfile = window.localStorage.getItem(onboardingProfileKey);
+    const hasSeenModal = window.localStorage.getItem(onboardingModalSeenKey) === "true";
+
+    if (rawTopics) {
+      try {
+        const parsed = JSON.parse(rawTopics) as string[];
+        setSelectedTopics(parsed);
+        setModalTopics(parsed);
+      } catch {
+        window.localStorage.removeItem(onboardingTopicsKey);
+      }
     }
 
-    try {
-      const parsed = JSON.parse(raw) as string[];
-      setSelectedTopics(parsed);
-    } catch {
-      window.localStorage.removeItem(onboardingKey);
+    if (rawProfile) {
+      try {
+        const parsed = JSON.parse(rawProfile) as { name?: string; interests?: string[] };
+        const existingName = typeof parsed.name === "string" ? parsed.name : "";
+        setProfileName(existingName);
+        setModalName(existingName);
+        if (!rawTopics && Array.isArray(parsed.interests)) {
+          setSelectedTopics(parsed.interests);
+          setModalTopics(parsed.interests);
+        }
+      } catch {
+        window.localStorage.removeItem(onboardingProfileKey);
+      }
+    }
+
+    if (!hasSeenModal) {
+      setIsOnboardingOpen(true);
     }
   }, []);
 
@@ -39,12 +68,24 @@ export default function Home() {
     setNextReadTime(Math.floor(Math.random() * 20) + 5);
   }, [cardIndex]);
 
+  useEffect(() => {
+    return () => {
+      if (onboardingTimerRef.current) {
+        clearTimeout(onboardingTimerRef.current);
+      }
+    };
+  }, []);
+
   const filteredFeed = useMemo(() => {
     if (selectedTopics.length === 0) {
       return mockFeed;
     }
 
-    return mockFeed.filter((paper) => paper.categories.some((category) => selectedTopics.includes(category)));
+    const matched = mockFeed.filter((paper) =>
+      paper.categories.some((category) => selectedTopics.includes(category)),
+    );
+
+    return matched.length > 0 ? matched : mockFeed;
   }, [selectedTopics]);
 
   const currentPaper = filteredFeed[cardIndex % filteredFeed.length];
@@ -167,6 +208,35 @@ export default function Home() {
 
   const nextPaper = filteredFeed[(cardIndex + 1) % filteredFeed.length];
 
+  const toggleModalTopic = (topic: string) => {
+    setModalTopics((current) =>
+      current.includes(topic) ? current.filter((entry) => entry !== topic) : [...current, topic],
+    );
+  };
+
+  const completeOnboarding = () => {
+    const cleanedName = modalName.trim();
+    window.localStorage.setItem(onboardingTopicsKey, JSON.stringify(modalTopics));
+    window.localStorage.setItem(
+      onboardingProfileKey,
+      JSON.stringify({ name: cleanedName, interests: modalTopics }),
+    );
+    window.localStorage.setItem(onboardingModalSeenKey, "true");
+    setSelectedTopics(modalTopics);
+    setProfileName(cleanedName);
+    setIsOnboardingLoading(true);
+
+    onboardingTimerRef.current = setTimeout(() => {
+      setIsOnboardingLoading(false);
+      setIsOnboardingOpen(false);
+    }, 5000);
+  };
+
+  const skipOnboarding = () => {
+    window.localStorage.setItem(onboardingModalSeenKey, "false");
+    setIsOnboardingOpen(false);
+  };
+
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* Featured Paper Card Stack */}
@@ -284,6 +354,86 @@ export default function Home() {
           </svg>
         </button>
       </div>
+
+      {isOnboardingOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#f5f1eb] px-4">
+          {isOnboardingLoading ? (
+            <div className="w-full max-w-xl rounded-2xl bg-white p-8 text-center shadow-xl md:p-10">
+              <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-[#e8e3dd] border-t-[#8b1f1f]" />
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#8b8b8b]">Personalizing</p>
+              <h2 className="mt-2 text-2xl font-black text-[#252525]">Building your feed</h2>
+              <p className="mt-2 text-sm text-[#5f5f5f]">
+                Curating papers based on your interests. This takes a few seconds.
+              </p>
+            </div>
+          ) : (
+            <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl md:p-7">
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#8b8b8b]">Welcome</p>
+              <h2 className="mt-1 text-2xl font-black text-[#252525]">Set up your profile</h2>
+              <p className="mt-2 text-sm text-[#5f5f5f]">
+                Add your name and select interests to personalize your feed.
+              </p>
+
+              <div className="mt-5 space-y-4">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-[#252525]">Name</span>
+                  <input
+                    type="text"
+                    value={modalName}
+                    onChange={(e) => setModalName(e.target.value)}
+                    placeholder="Your name"
+                    className="w-full rounded-xl border border-[#e8e3dd] px-3 py-2.5 text-sm text-[#252525] outline-none transition focus:border-[#8b1f1f] focus:ring-2 focus:ring-[#8b1f1f]/10"
+                  />
+                </label>
+
+                <div>
+                  <p className="text-sm font-semibold text-[#252525]">Interests</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {topics.map((topic) => {
+                      const active = modalTopics.includes(topic);
+                      return (
+                        <button
+                          key={topic}
+                          type="button"
+                          onClick={() => toggleModalTopic(topic)}
+                          className={`cursor-pointer rounded-full px-3 py-2 text-sm font-medium transition ${
+                            active
+                              ? "bg-[#8b1f1f] text-white"
+                              : "bg-[#f5f1eb] text-[#5f5f5f] hover:bg-[#e8e3dd]"
+                          }`}
+                        >
+                          {topic}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={skipOnboarding}
+                  className="cursor-pointer rounded-full px-4 py-2 text-sm font-semibold text-[#8b8b8b] hover:bg-[#f5f1eb]"
+                >
+                  Skip for now
+                </button>
+                <button
+                  type="button"
+                  onClick={completeOnboarding}
+                  className="cursor-pointer rounded-full bg-[#8b1f1f] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#a52a2a]"
+                >
+                  Save and continue
+                </button>
+              </div>
+
+              {profileName ? (
+                <p className="mt-3 text-xs text-[#8b8b8b]">Current profile: {profileName}</p>
+              ) : null}
+            </div>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }

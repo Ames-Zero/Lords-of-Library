@@ -10,6 +10,7 @@ type SidebarUserProps = {
 
 export function SidebarUser({ fallbackUsername, avatarUrl }: SidebarUserProps) {
   const [username, setUsername] = useState(fallbackUsername);
+  const [localAvatarUrl, setLocalAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const rawProfile = window.localStorage.getItem(onboardingProfileKey);
@@ -19,11 +20,20 @@ export function SidebarUser({ fallbackUsername, avatarUrl }: SidebarUserProps) {
     }
 
     try {
-      const parsed = JSON.parse(rawProfile) as { name?: string };
+      const parsed = JSON.parse(rawProfile) as { name?: string; avatarUrl?: string; avatar_url?: string };
       const storedName = typeof parsed.name === "string" ? parsed.name.trim() : "";
+      const storedAvatar =
+        typeof parsed.avatarUrl === "string"
+          ? parsed.avatarUrl.trim()
+          : typeof parsed.avatar_url === "string"
+            ? parsed.avatar_url.trim()
+            : "";
 
       if (storedName) {
         setUsername(storedName);
+      }
+      if (storedAvatar) {
+        setLocalAvatarUrl(storedAvatar);
       }
     } catch {
       window.localStorage.removeItem(onboardingProfileKey);
@@ -31,7 +41,7 @@ export function SidebarUser({ fallbackUsername, avatarUrl }: SidebarUserProps) {
   }, []);
 
   const robohashUrl = useMemo(() => `https://robohash.org/${username}`, [username]);
-  const displayAvatarUrl = avatarUrl || robohashUrl;
+  const displayAvatarUrl = localAvatarUrl || avatarUrl || robohashUrl;
 
   return (
     <div className="mb-8 pb-8 border-b border-[#e8e3dd]">

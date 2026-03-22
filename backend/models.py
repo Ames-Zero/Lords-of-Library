@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Literal, Optional
 from datetime import datetime
 
@@ -9,22 +9,21 @@ class SwipeRequest(BaseModel):
 
 class PaperOut(BaseModel):
     """Response model for paper metadata."""
+    model_config = ConfigDict(populate_by_name=True, alias_generator=lambda x: ''.join(['_'+c if c.isupper() else c for c in x]).lstrip('_'))
+    
     id: str = None
     title: str = None
     abstract: str = None
     authors: list[str] = None
-    primary_category: str = None
+    primary_category: str = Field(None, alias="primaryCategory")
     categories: list[str] = None
-    published_at: Optional[datetime] = None
-    arxiv_url: str = None
-    pdf_url: str = None
-
-    class Config:
-        from_attributes = True
+    published_at: Optional[datetime] = Field(None, alias="publishedAt")
+    arxiv_url: str = Field(None, alias="arxivUrl")
+    pdf_url: str = Field(None, alias="pdfUrl")
 
 class SavedPaperOut(PaperOut):
     """Response model for saved papers with timestamp."""
-    saved_at: Optional[datetime] = None
+    saved_at: Optional[datetime] = Field(None, alias="savedAt")
 
 class ConnectionOut(BaseModel):
     """Response model for connection/user profile."""

@@ -2,10 +2,11 @@ from fastapi import APIRouter
 from database import get_saved_collection, get_papers_collection
 from models import SavedPaperOut
 from config import DEMO_USER
+from utils import expand_category, expand_categories
 
 router = APIRouter(prefix="/saved", tags=["saved"])
 
-@router.get("")
+@router.get("", response_model=list[SavedPaperOut])
 async def get_saved_papers():
     """
     Get all right-swiped (saved) papers for the user.
@@ -28,8 +29,8 @@ async def get_saved_papers():
                 title=paper.get("title"),
                 abstract=paper.get("abstract"),
                 authors=paper.get("authors", []),
-                primary_category=paper.get("primary_category"),
-                categories=paper.get("categories", []),
+                primary_category=expand_category(paper.get("primary_category")),
+                categories=expand_categories(paper.get("categories", [])),
                 published_at=paper.get("published_at"),
                 arxiv_url=paper.get("arxiv_url"),
                 pdf_url=paper.get("pdf_url"),

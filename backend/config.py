@@ -17,3 +17,11 @@ DEFAULT_ALPHA = 1.0
 
 # Categories for feature engineering
 CATEGORIES = ["cs.CL", "cs.LG", "cs.AI", "stat.ML"]
+
+# Category abbreviation to full name mapping
+CATEGORY_NAMES = {
+    "cs.CL": "Computer Science - Computation and Language",
+    "cs.LG": "Computer Science - Machine Learning",
+    "cs.AI": "Computer Science - Artificial Intelligence",
+    "stat.ML": "Statistics - Machine Learning"
+}

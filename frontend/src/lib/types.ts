@@ -13,7 +13,8 @@ export interface Paper {
 }
 
 export interface ConnectionProfile {
-  alias: string;
+  name?: string;
+  alias?: string;
   bio: string;
-  topics: Topic[];
+  topics: string[];
 }

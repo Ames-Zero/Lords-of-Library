@@ -62,16 +62,19 @@ export const mockFeed: Paper[] = [
 
 export const mockConnections: ConnectionProfile[] = [
   {
+    name: "GraphNomad",
     alias: "GraphNomad",
     bio: "Reads graph learning papers and practical ML systems work.",
     topics: ["cs.LG", "cs.AI"],
   },
   {
+    name: "TokenMason",
     alias: "TokenMason",
     bio: "Focused on NLP efficiency and evaluation methodology.",
     topics: ["cs.CL", "stat.ML"],
   },
   {
+    name: "ProofAndPrompt",
     alias: "ProofAndPrompt",
     bio: "Interested in formal methods, robust inference, and model behavior.",
     topics: ["cs.AI", "stat.ML"],

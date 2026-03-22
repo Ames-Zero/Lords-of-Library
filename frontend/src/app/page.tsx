@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { mockFeed, topics } from "@/lib/mock-data";
 import { onboardingModalSeenKey, onboardingProfileKey, onboardingTopicsKey } from "@/lib/storage-keys";
+import { fetchNextPapers, logSwipe } from "@/lib/client-api";
+import type { Paper } from "@/lib/types";
 
 export default function Home() {
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
@@ -17,6 +19,9 @@ export default function Home() {
   const [isDragging, setIsDragging] = useState(false);
   const [currentReadTime, setCurrentReadTime] = useState(12);
   const [nextReadTime, setNextReadTime] = useState(12);
+  const [papers, setPapers] = useState<Paper[]>([]);
+  const [isLoadingFeed, setIsLoadingFeed] = useState(true);
+  const [feedError, setFeedError] = useState<string | null>(null);
   const pointerStartX = useRef(0);
   const pointerStartY = useRef(0);
   const activePointerId = useRef<number | null>(null);
@@ -24,6 +29,27 @@ export default function Home() {
   const animationDurationMs = 360;
   const swipeThresholdPx = 90;
   const maxDragPreviewPx = 140;
+
+  // Fetch papers from backend on mount
+  useEffect(() => {
+    const loadFeed = async () => {
+      try {
+        setIsLoadingFeed(true);
+        setFeedError(null);
+        const fetchedPapers = await fetchNextPapers();
+        setPapers(fetchedPapers);
+      } catch (error) {
+        console.error("Failed to load feed:", error);
+        setFeedError("Failed to load papers. Using demo data.");
+        // Fall back to mock data on error
+        setPapers(mockFeed);
+      } finally {
+        setIsLoadingFeed(false);
+      }
+    };
+
+    loadFeed();
+  }, []);
 
   useEffect(() => {
     const rawTopics = window.localStorage.getItem(onboardingTopicsKey);
@@ -75,17 +101,18 @@ export default function Home() {
 
   const filteredFeed = useMemo(() => {
     if (selectedTopics.length === 0) {
-      return mockFeed;
+      return papers;
     }
 
-    const matched = mockFeed.filter((paper) =>
+    const matched = papers.filter((paper) =>
       paper.categories.some((category) => selectedTopics.includes(category)),
     );
 
-    return matched.length > 0 ? matched : mockFeed;
-  }, [selectedTopics]);
+    return matched.length > 0 ? matched : papers;
+  }, [selectedTopics, papers]);
 
-  const currentPaper = filteredFeed[cardIndex % filteredFeed.length];
+  const hasPapers = filteredFeed.length > 0;
+  const currentPaper = hasPapers ? filteredFeed[cardIndex % filteredFeed.length] : null;
 
   const handlePointerDown = (e: React.PointerEvent<HTMLElement>) => {
     if (swipeDirection) {
@@ -149,13 +176,22 @@ export default function Home() {
   };
 
   const handleSwipe = (direction: "left" | "right") => {
-    if (swipeDirection) {
+    if (swipeDirection || !hasPapers) {
       return;
     }
 
     setSwipeDirection(direction);
     setIsDragging(false);
     setDragOffsetX(0);
+
+    // Log swipe to backend
+    const currentPaper = hasPapers ? filteredFeed[cardIndex % filteredFeed.length] : null;
+    if (currentPaper?.id) {
+      logSwipe(currentPaper.id, direction).catch((error) => {
+        console.error("Failed to log swipe:", error);
+      });
+    }
+
     setTimeout(() => {
       setCardIndex((prev) => prev + 1);
       setSwipeDirection(null);
@@ -203,7 +239,7 @@ export default function Home() {
   const currentImage = cardImages[cardIndex % cardImages.length];
   const nextImage = cardImages[(cardIndex + 1) % cardImages.length];
 
-  const nextPaper = filteredFeed[(cardIndex + 1) % filteredFeed.length];
+  const nextPaper = hasPapers ? filteredFeed[(cardIndex + 1) % filteredFeed.length] : null;
 
   const toggleModalTopic = (topic: string) => {
     setModalTopics((current) =>
@@ -238,87 +274,102 @@ export default function Home() {
     <div className="flex h-full flex-col overflow-hidden">
       {/* Featured Paper Card Stack */}
       <div className="relative flex-1 min-h-0 overflow-hidden">
-        <article
-          key={`next-${nextPaper.id}`}
-          className={`absolute inset-0 z-0 overflow-hidden rounded-2xl shadow-sm transition-all duration-300 ease-out select-none ${
-            swipeDirection
-              ? "translate-y-0 scale-100 opacity-100"
-              : "translate-y-3 scale-[0.97] opacity-70"
-          }`}
-          style={{ backgroundImage: `url(${nextImage})`, backgroundSize: "cover", backgroundPosition: "center" }}
-          aria-hidden="true"
-        >
-          <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 p-6 lg:p-7 text-white">
-            <div className="space-y-2">
-              <p className="inline-block rounded-full bg-white/20 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white/90">
-                {nextPaper.primaryCategory}
-              </p>
-              <h2 className="line-clamp-3 text-2xl font-black leading-tight lg:text-3xl">{nextPaper.title}</h2>
-              <p className="text-sm text-white/85">
-                {nextPaper.authors[0]} • {new Date(nextPaper.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-              </p>
-              <p className="line-clamp-2 text-sm text-white/80">{nextPaper.abstract}</p>
-            </div>
-            <div className="mt-4 flex items-center justify-between text-xs font-bold uppercase tracking-widest text-white/80">
-              <span>Read Time {nextReadTime} min</span>
-              <span>DQ-2024-0{((cardIndex + 1) % 1000).toString().padStart(3, "0")}</span>
-            </div>
-          </div>
-        </article>
-
-        <article
-          key={currentPaper.id}
-          className="relative z-10 h-full overflow-hidden rounded-2xl shadow-md will-change-transform select-none"
-          style={{ ...getCardStyle(), backgroundImage: `url(${currentImage})`, backgroundSize: "cover", backgroundPosition: "center", touchAction: "pan-y" }}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerEnd}
-          onPointerCancel={handlePointerCancel}
-        >
-          <div className="absolute inset-0 bg-linear-to-t from-black/75 via-black/15 to-transparent" />
-
-          <div className="pointer-events-none absolute inset-0 z-20">
-            <div
-              className="absolute inset-0"
-              style={{
-                boxShadow:
-                  activeDirection === "right"
-                    ? `inset 0 -80px 60px rgba(45, 150, 45, ${0.45 * activeOverlayOpacity})`
-                    : activeDirection === "left"
-                      ? `inset 0 -80px 60px rgba(224, 83, 83, ${0.45 * activeOverlayOpacity})`
-                      : "none",
-                transition: isDragging ? "none" : "box-shadow 140ms ease-out",
-              }}
-            />
-
-            {activeDirection && (
-              <div
-                className="absolute left-1/2 top-1/2 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white/80 bg-black/35 text-4xl text-white"
-                style={{ opacity: Math.min(0.95, 0.25 + activeOverlayOpacity * 0.7), transition: isDragging ? "none" : "opacity 140ms ease-out" }}
-              >
-                {activeDirection === "right" ? "✓" : "✕"}
+        {currentPaper && nextPaper ? (
+          <>
+            <article
+              key={`next-${nextPaper.id}`}
+              className={`absolute inset-0 z-0 overflow-hidden rounded-2xl shadow-sm transition-all duration-300 ease-out select-none ${
+                swipeDirection
+                  ? "translate-y-0 scale-100 opacity-100"
+                  : "translate-y-3 scale-[0.97] opacity-70"
+              }`}
+              style={{ backgroundImage: `url(${nextImage})`, backgroundSize: "cover", backgroundPosition: "center" }}
+              aria-hidden="true"
+            >
+              <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 p-6 lg:p-7 text-white">
+                <div className="space-y-2">
+                  <p className="inline-block rounded-full bg-white/20 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white/90">
+                    {nextPaper.primaryCategory}
+                  </p>
+                  <h2 className="line-clamp-3 text-2xl font-black leading-tight lg:text-3xl">{nextPaper.title}</h2>
+                  <p className="text-sm text-white/85">
+                    {nextPaper.authors[0]} • {new Date(nextPaper.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </p>
+                  <p className="line-clamp-2 text-sm text-white/80">{nextPaper.abstract}</p>
+                </div>
+                <div className="mt-4 flex items-center justify-between text-xs font-bold uppercase tracking-widest text-white/80">
+                  <span>Read Time {nextReadTime} min</span>
+                  <span>DQ-2024-0{((cardIndex + 1) % 1000).toString().padStart(3, "0")}</span>
+                </div>
               </div>
-            )}
-          </div>
+            </article>
 
-          <div className="absolute inset-x-0 bottom-0 z-10 p-6 lg:p-7 text-white">
-            <div className="space-y-2">
-              <p className="inline-block rounded-full bg-white/20 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white/90">
-                {currentPaper.primaryCategory}
+            <article
+              key={currentPaper.id}
+              className="relative z-10 h-full overflow-hidden rounded-2xl shadow-md will-change-transform select-none"
+              style={{ ...getCardStyle(), backgroundImage: `url(${currentImage})`, backgroundSize: "cover", backgroundPosition: "center", touchAction: "pan-y" }}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerEnd}
+              onPointerCancel={handlePointerCancel}
+            >
+              <div className="absolute inset-0 bg-linear-to-t from-black/75 via-black/15 to-transparent" />
+
+              <div className="pointer-events-none absolute inset-0 z-20">
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    boxShadow:
+                      activeDirection === "right"
+                        ? `inset 0 -80px 60px rgba(45, 150, 45, ${0.45 * activeOverlayOpacity})`
+                        : activeDirection === "left"
+                          ? `inset 0 -80px 60px rgba(224, 83, 83, ${0.45 * activeOverlayOpacity})`
+                          : "none",
+                    transition: isDragging ? "none" : "box-shadow 140ms ease-out",
+                  }}
+                />
+
+                {activeDirection && (
+                  <div
+                    className="absolute left-1/2 top-1/2 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white/80 bg-black/35 text-4xl text-white"
+                    style={{ opacity: Math.min(0.95, 0.25 + activeOverlayOpacity * 0.7), transition: isDragging ? "none" : "opacity 140ms ease-out" }}
+                  >
+                    {activeDirection === "right" ? "✓" : "✕"}
+                  </div>
+                )}
+              </div>
+
+              <div className="absolute inset-x-0 bottom-0 z-10 p-6 lg:p-7 text-white">
+                <div className="space-y-2">
+                  <p className="inline-block rounded-full bg-white/20 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white/90">
+                    {currentPaper.primaryCategory}
+                  </p>
+                  <h2 className="line-clamp-3 text-2xl font-black leading-tight lg:text-3xl">{currentPaper.title}</h2>
+                  <p className="text-sm text-white/85">
+                    {currentPaper.authors[0]} • {new Date(currentPaper.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </p>
+                  <p className="line-clamp-2 text-sm text-white/80">{currentPaper.abstract}</p>
+                </div>
+                <div className="mt-4 flex items-center justify-between text-xs font-bold uppercase tracking-widest text-white/80">
+                  <span>Read Time {currentReadTime} min</span>
+                  <span>DQ-2024-0{(cardIndex % 1000).toString().padStart(3, "0")}</span>
+                </div>
+              </div>
+            </article>
+          </>
+        ) : (
+          <div className="flex h-full items-center justify-center rounded-2xl bg-[#f2ede6] p-6 text-center">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-widest text-[#8b8b8b]">
+                {isLoadingFeed ? "Loading feed" : "No papers available"}
               </p>
-              <h2 className="line-clamp-3 text-2xl font-black leading-tight lg:text-3xl">{currentPaper.title}</h2>
-              <p className="text-sm text-white/85">
-                {currentPaper.authors[0]} • {new Date(currentPaper.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+              <p className="mt-2 text-sm text-[#5f5f5f]">
+                {feedError ?? "Try adjusting interests or reload to fetch papers."}
               </p>
-              <p className="line-clamp-2 text-sm text-white/80">{currentPaper.abstract}</p>
-            </div>
-            <div className="mt-4 flex items-center justify-between text-xs font-bold uppercase tracking-widest text-white/80">
-              <span>Read Time {currentReadTime} min</span>
-              <span>DQ-2024-0{(cardIndex % 1000).toString().padStart(3, "0")}</span>
             </div>
           </div>
-        </article>
+        )}
       </div>
 
       {/* Action Buttons */}

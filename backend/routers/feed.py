@@ -6,7 +6,7 @@ from config import DEMO_USER
 
 router = APIRouter(prefix="/feed", tags=["feed"])
 
-@router.get("/next")
+@router.get("/next", response_model=list[PaperOut])
 async def get_next_papers():
     """
     Get next 20 papers for the user based on LinUCB scoring.

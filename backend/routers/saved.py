@@ -5,7 +5,7 @@ from config import DEMO_USER
 
 router = APIRouter(prefix="/saved", tags=["saved"])
 
-@router.get("")
+@router.get("", response_model=list[SavedPaperOut])
 async def get_saved_papers():
     """
     Get all right-swiped (saved) papers for the user.

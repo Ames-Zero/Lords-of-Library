@@ -16,7 +16,7 @@ export function SavedView() {
         setIsLoading(true);
         setError(null);
         const savedPapers = await fetchSavedPapers();
-        setPapers(savedPapers);
+        setPapers(savedPapers.slice(0, 10));
       } catch (err) {
         console.error("Failed to load saved papers:", err);
         setError("Failed to load saved papers. Using demo data.");

@@ -4,9 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const tabs = [
-  { href: "/", label: "Feed", icon: "D" },
-  { href: "/connections", label: "Analytics", icon: "A" },
-  { href: "/onboarding", label: "Profile", icon: "P" },
+  { href: "/", label: "Feed", icon: "F" },
+  { href: "/connections", label: "Connections", icon: "C" },
+  { href: "/saved", label: "Saved", icon: "S" },
 ];
 
 export function AppNav() {
@@ -21,7 +21,7 @@ export function AppNav() {
           <Link
             key={tab.href}
             href={tab.href}
-            className={`flex items-center gap-3 rounded-full px-4 py-3 text-sm font-extrabold uppercase tracking-[0.08em] transition ${
+            className={`flex items-center gap-3 rounded-full px-4 py-3 text-sm font-extrabold tracking-[0.08em] transition ${
               isActive
                 ? "bg-[#9e0000] text-white shadow-[0_3px_0_#520000]"
                 : "text-stone-400 hover:bg-white/70 hover:text-stone-700"

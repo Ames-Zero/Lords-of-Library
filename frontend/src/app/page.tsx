@@ -173,7 +173,7 @@ export default function Home() {
       <div className="relative flex-1 min-h-0 overflow-hidden">
         <article
           key={`next-${nextPaper.id}`}
-          className={`absolute inset-0 z-0 overflow-hidden rounded-2xl border border-[#e8e3dd] shadow-sm transition-all duration-300 ease-out select-none ${
+          className={`absolute inset-0 z-0 overflow-hidden rounded-2xl shadow-sm transition-all duration-300 ease-out select-none ${
             swipeDirection
               ? "translate-y-0 scale-100 opacity-100"
               : "translate-y-3 scale-[0.97] opacity-70"
@@ -202,7 +202,7 @@ export default function Home() {
 
         <article
           key={currentPaper.id}
-          className="relative z-10 h-full overflow-hidden rounded-2xl border border-[#e8e3dd] shadow-md will-change-transform select-none"
+          className="relative z-10 h-full overflow-hidden rounded-2xl shadow-md will-change-transform select-none"
           style={{ ...getCardStyle(), backgroundImage: `url(${currentImage})`, backgroundSize: "cover", backgroundPosition: "center", touchAction: "pan-y" }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}

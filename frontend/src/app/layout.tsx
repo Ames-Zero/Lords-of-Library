@@ -28,8 +28,12 @@ export default async function RootLayout({
   const avatarFallback = viewer.username.charAt(0).toUpperCase() || "D";
 
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="h-full bg-[#f5f1eb] text-[#252525]">
+    <html
+      lang="en"
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
+    >
+      <body className="h-full bg-[#f5f1eb] text-[#252525]" suppressHydrationWarning>
         <div className="flex h-screen flex-col overflow-hidden md:flex-row">
           {/* Desktop Sidebar */}
           <aside className="hidden lg:flex lg:flex-col w-64 bg-white border-r border-[#e8e3dd] p-8 sticky top-0 h-screen overflow-y-auto">

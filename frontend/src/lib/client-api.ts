@@ -4,8 +4,8 @@
  * which forwards requests to the FastAPI backend at http://localhost:8000
  */
 
-import type { Paper } from "@/lib/types";
-import { mockFeed } from "@/lib/mock-data";
+import type { ConnectionProfile, Paper } from "@/lib/types";
+import { mockConnections, mockFeed } from "@/lib/mock-data";
 
 const API_BASE = "/api"; // Uses Next.js proxy at /api/[...path]
 
@@ -72,7 +72,7 @@ export async function fetchNextPapers(): Promise<Paper[]> {
       console.warn("Feed response was not an array. Using demo data.");
       return mockFeed;
     }
-
+  
     return papers.map(transformPaper);
   } catch (error) {
     console.warn("Error fetching papers. Using demo data:", error);
@@ -147,5 +147,61 @@ export async function checkBackendHealth(): Promise<boolean> {
     return response.ok;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Fetch connection profiles (same shape as server getConnectionProfiles).
+ * GET /connections
+ */
+export async function fetchConnectionProfiles(): Promise<{
+  profiles: ConnectionProfile[];
+  source: "backend" | "mock";
+}> {
+  try {
+    const response = await fetch(`${API_BASE}/connections`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch connections: ${response.status}`);
+    }
+
+    const payload = (await response.json()) as
+      | Array<{
+          name?: string;
+          alias?: string;
+          bio?: string;
+          topics?: string[];
+        }>
+      | {
+          connections?: Array<{
+            name?: string;
+            alias?: string;
+            bio?: string;
+            topics?: string[];
+          }>;
+        };
+
+    const data = Array.isArray(payload) ? payload : (payload.connections ?? []);
+
+    return {
+      profiles: data
+        .map((profile) => ({
+          name: profile.name,
+          alias: profile.alias,
+          bio: profile.bio ?? "",
+          topics: Array.isArray(profile.topics) ? profile.topics : [],
+        }))
+        .filter((profile) => Boolean(profile.name ?? profile.alias)),
+      source: "backend",
+    };
+  } catch {
+    return {
+      profiles: mockConnections,
+      source: "mock",
+    };
   }
 }

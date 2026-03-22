@@ -1,25 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { normalizeAppView, type AppView } from "@/lib/app-view";
 
-const tabs = [
-  { href: "/", label: "Feed", icon: "F" },
-  { href: "/connections", label: "Connections", icon: "C" },
-  { href: "/saved", label: "Saved", icon: "S" },
+const tabs: { view: AppView; label: string; icon: string; href: string }[] = [
+  { view: "feed", label: "Feed", icon: "F", href: "/" },
+  { view: "connections", label: "Connections", icon: "C", href: "/?view=connections" },
+  { view: "saved", label: "Saved", icon: "S", href: "/?view=saved" },
 ];
 
 export function AppNav() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentView = normalizeAppView(searchParams.get("view"));
 
   return (
     <nav className="mt-7 space-y-3" aria-label="Primary navigation">
       {tabs.map((tab) => {
-        const isActive = pathname === tab.href;
+        const isActive = pathname === "/" && currentView === tab.view;
 
         return (
           <Link
-            key={tab.href}
+            key={tab.view}
             href={tab.href}
             className={`flex items-center gap-3 rounded-full px-4 py-3 text-sm font-extrabold tracking-[0.08em] transition ${
               isActive

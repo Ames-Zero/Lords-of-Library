@@ -1,11 +1,11 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { mockFeed } from "@/lib/mock-data";
 import { fetchSavedPapers } from "@/lib/client-api";
 import type { Paper } from "@/lib/types";
 
-export default function SavedPage() {
+export function SavedView() {
   const [papers, setPapers] = useState<Paper[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

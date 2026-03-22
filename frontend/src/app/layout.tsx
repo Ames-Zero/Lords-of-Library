@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { DesktopLayoutNav, MobileLayoutNav } from "@/components/layout-nav";
 import { SidebarUser } from "@/components/sidebar-user";
@@ -47,7 +48,9 @@ export default async function RootLayout({
             <SidebarUser fallbackUsername={viewer.username} avatarUrl={viewer.avatarUrl} />
 
             {/* Navigation */}
-            <DesktopLayoutNav />
+            <Suspense fallback={null}>
+              <DesktopLayoutNav />
+            </Suspense>
 
             {/* Logout Button */}
             <button className="w-full px-4 py-3 bg-[#8b1f1f] text-white font-bold uppercase text-xs tracking-wide rounded hover:bg-[#a52a2a] transition-colors">
@@ -61,7 +64,9 @@ export default async function RootLayout({
           </main>
 
           {/* Mobile Bottom Navigation */}
-          <MobileLayoutNav />
+          <Suspense fallback={null}>
+            <MobileLayoutNav />
+          </Suspense>
         </div>
       </body>
     </html>

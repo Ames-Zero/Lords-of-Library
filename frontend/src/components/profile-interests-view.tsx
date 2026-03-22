@@ -2,15 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { topics } from "@/lib/mock-data";
+import { onboardingTopicsKey } from "@/lib/storage-keys";
 
-const storageKey = "lol.onboarding.topics";
-
-export default function OnboardingPage() {
+export function ProfileInterestsView() {
   const [selected, setSelected] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    const raw = window.localStorage.getItem(storageKey);
+    const raw = window.localStorage.getItem(onboardingTopicsKey);
     if (!raw) {
       return;
     }
@@ -19,7 +18,7 @@ export default function OnboardingPage() {
       const parsed = JSON.parse(raw) as string[];
       setSelected(parsed);
     } catch {
-      window.localStorage.removeItem(storageKey);
+      window.localStorage.removeItem(onboardingTopicsKey);
     }
   }, []);
 
@@ -31,15 +30,15 @@ export default function OnboardingPage() {
   }
 
   function saveChoices() {
-    window.localStorage.setItem(storageKey, JSON.stringify(selected));
+    window.localStorage.setItem(onboardingTopicsKey, JSON.stringify(selected));
     setSaved(true);
   }
 
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="text-xl font-semibold tracking-tight text-stone-900">Onboarding</h2>
-        <p className="mt-1 text-sm text-stone-600">Pick initial interest topics for the feed warm-start.</p>
+        <h2 className="text-xl font-semibold tracking-tight text-stone-900">Profile</h2>
+        <p className="mt-1 text-sm text-stone-600">Pick interest topics for the feed warm-start.</p>
       </div>
 
       <div className="card-panel rounded-2xl p-4">
@@ -53,9 +52,7 @@ export default function OnboardingPage() {
                 type="button"
                 onClick={() => toggleTopic(topic)}
                 className={`rounded-full px-3 py-2 text-sm transition ${
-                  active
-                    ? "bg-teal-700 text-white"
-                    : "bg-stone-100 text-stone-700 hover:bg-stone-200"
+                  active ? "bg-teal-700 text-white" : "bg-stone-100 text-stone-700 hover:bg-stone-200"
                 }`}
               >
                 {topic}

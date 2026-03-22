@@ -6,6 +6,12 @@ import { onboardingModalSeenKey, onboardingProfileKey, onboardingTopicsKey } fro
 import { fetchNextPapers, logSwipe } from "@/lib/client-api";
 import type { Paper } from "@/lib/types";
 
+  const animationDurationMs = 360;
+  const swipeThresholdPx = 90;
+  const maxDragPreviewPx = 140;
+  const prefetchThreshold = 10;
+  const prefetchDebounceMs = 250;
+
 export default function Home() {
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [profileName, setProfileName] = useState("");
@@ -13,7 +19,6 @@ export default function Home() {
   const [modalTopics, setModalTopics] = useState<string[]>([]);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isOnboardingLoading, setIsOnboardingLoading] = useState(false);
-  const [cardIndex, setCardIndex] = useState(0);
   const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(null);
   const [dragOffsetX, setDragOffsetX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -21,14 +26,29 @@ export default function Home() {
   const [nextReadTime, setNextReadTime] = useState(12);
   const [papers, setPapers] = useState<Paper[]>([]);
   const [isLoadingFeed, setIsLoadingFeed] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [feedError, setFeedError] = useState<string | null>(null);
   const pointerStartX = useRef(0);
   const pointerStartY = useRef(0);
   const activePointerId = useRef<number | null>(null);
   const onboardingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const animationDurationMs = 360;
-  const swipeThresholdPx = 90;
-  const maxDragPreviewPx = 140;
+  const prefetchDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inFlightFeedRequestRef = useRef<Promise<Paper[]> | null>(null);
+  const lastPrefetchFeedLengthRef = useRef<number | null>(null);
+
+  const fetchFeedBatch = async (): Promise<Paper[]> => {
+    if (inFlightFeedRequestRef.current) {
+      return inFlightFeedRequestRef.current;
+    }
+
+    const request = fetchNextPapers().finally(() => {
+      inFlightFeedRequestRef.current = null;
+    });
+    inFlightFeedRequestRef.current = request;
+    return request;
+  };
+
+  useEffect(() => {console.log(papers.length)}, [papers]);
 
   // Fetch papers from backend on mount
   useEffect(() => {
@@ -36,13 +56,13 @@ export default function Home() {
       try {
         setIsLoadingFeed(true);
         setFeedError(null);
-        const fetchedPapers = await fetchNextPapers();
+        const fetchedPapers = await fetchFeedBatch();
         setPapers(fetchedPapers);
       } catch (error) {
         console.error("Failed to load feed:", error);
-        setFeedError("Failed to load papers. Using demo data.");
-        // Fall back to mock data on error
-        setPapers(mockFeed);
+        // setFeedError("Failed to load papers. Using demo data.");
+        // // Fall back to mock data on error
+        // setPapers(mockFeed);
       } finally {
         setIsLoadingFeed(false);
       }
@@ -87,32 +107,72 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    setCurrentReadTime(Math.floor(Math.random() * 20) + 5);
-    setNextReadTime(Math.floor(Math.random() * 20) + 5);
-  }, [cardIndex]);
-
-  useEffect(() => {
     return () => {
       if (onboardingTimerRef.current) {
         clearTimeout(onboardingTimerRef.current);
       }
+      if (prefetchDebounceTimerRef.current) {
+        clearTimeout(prefetchDebounceTimerRef.current);
+      }
     };
   }, []);
 
-  const filteredFeed = useMemo(() => {
-    if (selectedTopics.length === 0) {
-      return papers;
+
+
+  useEffect(() => {
+    setCurrentReadTime(Math.floor(Math.random() * 20) + 5);
+    setNextReadTime(Math.floor(Math.random() * 20) + 5);
+  }, [papers]);
+
+  useEffect(() => {
+    if (isLoadingFeed || isFetchingMore) {
+      return;
     }
 
-    const matched = papers.filter((paper) =>
-      paper.categories.some((category) => selectedTopics.includes(category)),
-    );
+    if (papers.length !== prefetchThreshold) {
+      return;
+    }
 
-    return matched.length > 0 ? matched : papers;
-  }, [selectedTopics, papers]);
+    // Only prefetch once per feed length at the exact threshold.
+    if (lastPrefetchFeedLengthRef.current === papers.length) {
+      return;
+    }
+    lastPrefetchFeedLengthRef.current = papers.length;
 
-  const hasPapers = filteredFeed.length > 0;
-  const currentPaper = hasPapers ? filteredFeed[cardIndex % filteredFeed.length] : null;
+    const loadMore = async () => {
+      try {
+        if (inFlightFeedRequestRef.current) {
+          return;
+        }
+
+        setIsFetchingMore(true);
+        const fetchedPapers = await fetchFeedBatch();
+		// Reset the prefetch guard so it can trigger again at the threshold
+        lastPrefetchFeedLengthRef.current = null;
+
+        setPapers((previous) => [...previous, ...fetchedPapers]);
+      } catch (error) {
+        console.error("Failed to prefetch papers:", error);
+      } finally {
+        setIsFetchingMore(false);
+      }
+    };
+
+    if (prefetchDebounceTimerRef.current) {
+      clearTimeout(prefetchDebounceTimerRef.current);
+    }
+
+    prefetchDebounceTimerRef.current = setTimeout(() => {
+      void loadMore();
+    }, prefetchDebounceMs);
+
+    return () => {
+      if (prefetchDebounceTimerRef.current) {
+        clearTimeout(prefetchDebounceTimerRef.current);
+        prefetchDebounceTimerRef.current = null;
+      }
+    };
+  }, [papers.length, isFetchingMore, isLoadingFeed])
 
   const handlePointerDown = (e: React.PointerEvent<HTMLElement>) => {
     if (swipeDirection) {
@@ -176,7 +236,7 @@ export default function Home() {
   };
 
   const handleSwipe = (direction: "left" | "right") => {
-    if (swipeDirection || !hasPapers) {
+    if (swipeDirection || papers.length === 0) {
       return;
     }
 
@@ -184,16 +244,15 @@ export default function Home() {
     setIsDragging(false);
     setDragOffsetX(0);
 
-    // Log swipe to backend
-    const currentPaper = hasPapers ? filteredFeed[cardIndex % filteredFeed.length] : null;
-    if (currentPaper?.id) {
-      logSwipe(currentPaper.id, direction).catch((error) => {
+    // Log swipe to backend and remove paper from feed
+    if (papers[0]?.id) {
+      logSwipe(papers[0].id, direction).catch((error) => {
         console.error("Failed to log swipe:", error);
       });
     }
 
     setTimeout(() => {
-      setCardIndex((prev) => prev + 1);
+      setPapers((prev) => prev.slice(1));
       setSwipeDirection(null);
       setDragOffsetX(0);
     }, animationDurationMs);
@@ -236,10 +295,8 @@ export default function Home() {
     "https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=1170&q=80",
   ];
 
-  const currentImage = cardImages[cardIndex % cardImages.length];
-  const nextImage = cardImages[(cardIndex + 1) % cardImages.length];
-
-  const nextPaper = hasPapers ? filteredFeed[(cardIndex + 1) % filteredFeed.length] : null;
+  const currentImage = cardImages[papers.length % cardImages.length];
+  const nextImage = cardImages[(papers.length + 1) % cardImages.length];
 
   const toggleModalTopic = (topic: string) => {
     setModalTopics((current) =>
@@ -274,39 +331,41 @@ export default function Home() {
     <div className="flex h-full flex-col overflow-hidden">
       {/* Featured Paper Card Stack */}
       <div className="relative flex-1 min-h-0 overflow-hidden">
-        {currentPaper && nextPaper ? (
+        {papers.length > 0 ? (
           <>
-            <article
-              key={`next-${nextPaper.id}`}
-              className={`absolute inset-0 z-0 overflow-hidden rounded-2xl shadow-sm transition-all duration-300 ease-out select-none ${
-                swipeDirection
-                  ? "translate-y-0 scale-100 opacity-100"
-                  : "translate-y-3 scale-[0.97] opacity-70"
-              }`}
-              style={{ backgroundImage: `url(${nextImage})`, backgroundSize: "cover", backgroundPosition: "center" }}
-              aria-hidden="true"
-            >
-              <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent" />
-              <div className="absolute inset-x-0 bottom-0 p-6 lg:p-7 text-white">
-                <div className="space-y-2">
-                  <p className="inline-block rounded-full bg-white/20 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white/90">
-                    {nextPaper.primaryCategory}
-                  </p>
-                  <h2 className="line-clamp-3 text-2xl font-black leading-tight lg:text-3xl">{nextPaper.title}</h2>
-                  <p className="text-sm text-white/85">
-                    {nextPaper.authors[0]} • {new Date(nextPaper.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                  </p>
-                  <p className="line-clamp-2 text-sm text-white/80">{nextPaper.abstract}</p>
+            {papers.length > 1 ? (
+              <article
+                key={`next-${papers[1].id}`}
+                className={`absolute inset-0 z-0 overflow-hidden rounded-2xl shadow-sm transition-all duration-300 ease-out select-none ${
+                  swipeDirection
+                    ? "translate-y-0 scale-100 opacity-100"
+                    : "translate-y-3 scale-[0.97] opacity-70"
+                }`}
+                style={{ backgroundImage: `url(${nextImage})`, backgroundSize: "cover", backgroundPosition: "center" }}
+                aria-hidden="true"
+              >
+                <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 p-6 lg:p-7 text-white">
+                  <div className="space-y-2">
+                    <p className="inline-block rounded-full bg-white/20 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white/90">
+                      {papers[1].primaryCategory}
+                    </p>
+                    <h2 className="line-clamp-3 text-2xl font-black leading-tight lg:text-3xl">{papers[1].title}</h2>
+                    <p className="text-sm text-white/85">
+                      {papers[1].authors[0]} • {new Date(papers[1].publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </p>
+                    <p className="line-clamp-2 text-sm text-white/80">{papers[1].abstract}</p>
+                  </div>
+                  <div className="mt-4 flex items-center justify-between text-xs font-bold uppercase tracking-widest text-white/80">
+                    <span>Read Time {nextReadTime} min</span>
+                    <span>DQ-2024-0{Math.max(0, papers.length - 1).toString().padStart(3, "0")}</span>
+                  </div>
                 </div>
-                <div className="mt-4 flex items-center justify-between text-xs font-bold uppercase tracking-widest text-white/80">
-                  <span>Read Time {nextReadTime} min</span>
-                  <span>DQ-2024-0{((cardIndex + 1) % 1000).toString().padStart(3, "0")}</span>
-                </div>
-              </div>
-            </article>
+              </article>
+            ) : null}
 
             <article
-              key={currentPaper.id}
+              key={papers[0].id}
               className="relative z-10 h-full overflow-hidden rounded-2xl shadow-md will-change-transform select-none"
               style={{ ...getCardStyle(), backgroundImage: `url(${currentImage})`, backgroundSize: "cover", backgroundPosition: "center", touchAction: "pan-y" }}
               onPointerDown={handlePointerDown}
@@ -343,17 +402,17 @@ export default function Home() {
               <div className="absolute inset-x-0 bottom-0 z-10 p-6 lg:p-7 text-white">
                 <div className="space-y-2">
                   <p className="inline-block rounded-full bg-white/20 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white/90">
-                    {currentPaper.primaryCategory}
+                    {papers[0].primaryCategory}
                   </p>
-                  <h2 className="line-clamp-3 text-2xl font-black leading-tight lg:text-3xl">{currentPaper.title}</h2>
+                  <h2 className="line-clamp-3 text-2xl font-black leading-tight lg:text-3xl">{papers[0].title}</h2>
                   <p className="text-sm text-white/85">
-                    {currentPaper.authors[0]} • {new Date(currentPaper.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    {papers[0].authors[0]} • {new Date(papers[0].publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                   </p>
-                  <p className="line-clamp-2 text-sm text-white/80">{currentPaper.abstract}</p>
+                  <p className="line-clamp-2 text-sm text-white/80">{papers[0].abstract}</p>
                 </div>
                 <div className="mt-4 flex items-center justify-between text-xs font-bold uppercase tracking-widest text-white/80">
                   <span>Read Time {currentReadTime} min</span>
-                  <span>DQ-2024-0{(cardIndex % 1000).toString().padStart(3, "0")}</span>
+                  <span>DQ-2024-0{Math.max(0, papers.length).toString().padStart(3, "0")}</span>
                 </div>
               </div>
             </article>
@@ -361,12 +420,20 @@ export default function Home() {
         ) : (
           <div className="flex h-full items-center justify-center rounded-2xl bg-[#f2ede6] p-6 text-center">
             <div>
-              <p className="text-sm font-bold uppercase tracking-widest text-[#8b8b8b]">
-                {isLoadingFeed ? "Loading feed" : "No papers available"}
-              </p>
-              <p className="mt-2 text-sm text-[#5f5f5f]">
-                {feedError ?? "Try adjusting interests or reload to fetch papers."}
-              </p>
+              {isLoadingFeed || isFetchingMore ? (
+                <>
+                  <div className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-4 border-[#e8e3dd] border-t-[#8b1f1f]" />
+                  <p className="text-sm font-bold uppercase tracking-widest text-[#8b8b8b]">Loading feed</p>
+                  <p className="mt-2 text-sm text-[#5f5f5f]">Fetching more papers for you...</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-bold uppercase tracking-widest text-[#8b8b8b]">No papers available</p>
+                  <p className="mt-2 text-sm text-[#5f5f5f]">
+                    {feedError ?? "Try adjusting interests or reload to fetch papers."}
+                  </p>
+                </>
+              )}
             </div>
           </div>
         )}

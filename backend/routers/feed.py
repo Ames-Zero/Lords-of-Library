@@ -41,16 +41,20 @@ async def get_next_papers():
     for paper_id in top_20_ids:
         paper = papers_collection.find_one({"_id": paper_id})
         if paper:
-            result_papers.append(PaperOut(
-                id=paper["_id"],
-                title=paper.get("title"),
-                abstract=paper.get("abstract"),
-                authors=paper.get("authors", []),
-                primary_category=expand_category(paper.get("primary_category")),
-                categories=expand_categories(paper.get("categories", [])),
-                published_at=paper.get("published_at"),
-                arxiv_url=paper.get("arxiv_url"),
-                pdf_url=paper.get("pdf_url")
-            ))
+                # Convert datetime fields to ISO strings if present
+                published_at = paper.get("published_at")
+                if published_at is not None and hasattr(published_at, 'isoformat'):
+                    published_at = published_at.isoformat()
+                result_papers.append(PaperOut(
+                    id=paper["_id"],
+                    title=paper.get("title"),
+                    abstract=paper.get("abstract"),
+                    authors=paper.get("authors", []),
+                    primary_category=expand_category(paper.get("primary_category")),
+                    categories=expand_categories(paper.get("categories", [])),
+                    published_at=published_at,
+                    arxiv_url=paper.get("arxiv_url"),
+                    pdf_url=paper.get("pdf_url")
+                ))
     
     return result_papers

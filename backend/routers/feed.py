@@ -3,6 +3,7 @@ from database import get_papers_collection, get_swipes_collection
 from recommender.linucb import load_state, score_papers
 from models import PaperOut
 from config import DEMO_USER
+from utils import expand_category, expand_categories
 
 router = APIRouter(prefix="/feed", tags=["feed"])
 
@@ -45,8 +46,8 @@ async def get_next_papers():
                 title=paper.get("title"),
                 abstract=paper.get("abstract"),
                 authors=paper.get("authors", []),
-                primary_category=paper.get("primary_category"),
-                categories=paper.get("categories", []),
+                primary_category=expand_category(paper.get("primary_category")),
+                categories=expand_categories(paper.get("categories", [])),
                 published_at=paper.get("published_at"),
                 arxiv_url=paper.get("arxiv_url"),
                 pdf_url=paper.get("pdf_url")

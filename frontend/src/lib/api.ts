@@ -20,32 +20,10 @@ async function getInternalApiOrigin(): Promise<string> {
 }
 
 export async function getViewerProfile(): Promise<ViewerProfile> {
-  try {
-    const origin = await getInternalApiOrigin();
-    const response = await fetch(`${origin}/api/user/me`, {
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch viewer profile: ${response.status}`);
-    }
-
-    const data = (await response.json()) as {
-      username?: string;
-      avatar_url?: string | null;
-      avatarUrl?: string | null;
-    };
-
-    return {
-      username: data.username ?? "Demo User",
-      avatarUrl: data.avatar_url ?? data.avatarUrl ?? null,
-    };
-  } catch {
-    return {
-      username: "Demo User",
-      avatarUrl: null,
-    };
-  }
+  return {
+    username: "Demo User",
+    avatarUrl: null,
+  };
 }
 
 export async function getConnectionProfiles(): Promise<{

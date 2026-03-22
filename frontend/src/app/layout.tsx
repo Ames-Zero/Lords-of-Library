@@ -49,7 +49,7 @@ export default function RootLayout({
             <nav className="flex-1 space-y-1 mb-8">
               <a href="/" className="flex items-center gap-3 px-3 py-2 rounded text-sm font-semibold text-[#8b1f1f] bg-[#f5f1eb]">
                 <div className="w-5 text-center">●</div>
-                <span>DISCOVERY</span>
+                <span>FEED</span>
               </a>
               <a href="/saved" className="flex items-center gap-3 px-3 py-2 rounded text-sm font-semibold text-[#8b8b8b] hover:bg-[#f5f1eb]">
                 <div className="w-5 text-center">■</div>
@@ -80,7 +80,7 @@ export default function RootLayout({
           <nav className="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-4 bg-white/70 backdrop-blur-xl border-t border-[#e8e3dd] rounded-t-3xl">
             <a href="/" className="flex flex-col items-center justify-center text-[#8b1f1f] gap-1">
               <span className="text-lg">●</span>
-              <span className="text-[10px] font-semibold uppercase tracking-tight">Discovery</span>
+              <span className="text-[10px] font-semibold uppercase tracking-tight">Feed</span>
             </a>
             <a href="/saved" className="flex flex-col items-center justify-center text-[#8b8b8b] hover:text-[#8b1f1f] transition-colors gap-1 opacity-70">
               <span className="text-lg">■</span>

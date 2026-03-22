@@ -9,6 +9,8 @@ export default function Home() {
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [cardIndex, setCardIndex] = useState(0);
   const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(null);
+  const [currentReadTime, setCurrentReadTime] = useState(12);
+  const [nextReadTime, setNextReadTime] = useState(12);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
 
@@ -25,6 +27,11 @@ export default function Home() {
       window.localStorage.removeItem(onboardingKey);
     }
   }, []);
+
+  useEffect(() => {
+    setCurrentReadTime(Math.floor(Math.random() * 20) + 5);
+    setNextReadTime(Math.floor(Math.random() * 20) + 5);
+  }, [cardIndex]);
 
   const filteredFeed = useMemo(() => {
     if (selectedTopics.length === 0) {
@@ -154,7 +161,7 @@ export default function Home() {
                 ))}
               </div>
               <p className="text-xs font-bold uppercase tracking-widest text-[#8b8b8b]">
-                READ TIME: {Math.floor(Math.random() * 20) + 5} minutes
+                READ TIME: {currentReadTime} minutes
               </p>
             </div>
           </div>
@@ -208,7 +215,7 @@ export default function Home() {
                   ))}
                 </div>
                 <p className="text-xs font-bold uppercase tracking-widest text-[#8b8b8b]">
-                  READ TIME: {Math.floor(Math.random() * 20) + 5} minutes
+                  READ TIME: {nextReadTime} minutes
                 </p>
               </div>
             </div>

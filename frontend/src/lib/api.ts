@@ -1,4 +1,6 @@
 import { headers } from "next/headers";
+import type { ConnectionProfile } from "@/lib/types";
+import { mockConnections } from "@/lib/mock-data";
 
 export type ViewerProfile = {
   username: string;
@@ -42,6 +44,57 @@ export async function getViewerProfile(): Promise<ViewerProfile> {
     return {
       username: "Demo User",
       avatarUrl: null,
+    };
+  }
+}
+
+export async function getConnectionProfiles(): Promise<{
+  profiles: ConnectionProfile[];
+  source: "backend" | "mock";
+}> {
+  try {
+    const origin = await getInternalApiOrigin();
+    const response = await fetch(`${origin}/api/connections`, {
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch connections: ${response.status}`);
+    }
+
+    const payload = (await response.json()) as
+      | Array<{
+          name?: string;
+          alias?: string;
+          bio?: string;
+          topics?: string[];
+        }>
+      | {
+          connections?: Array<{
+            name?: string;
+            alias?: string;
+            bio?: string;
+            topics?: string[];
+          }>;
+        };
+
+    const data = Array.isArray(payload) ? payload : payload.connections ?? [];
+
+    return {
+      profiles: data
+        .map((profile) => ({
+          name: profile.name,
+          alias: profile.alias,
+          bio: profile.bio ?? "",
+          topics: Array.isArray(profile.topics) ? profile.topics : [],
+        }))
+        .filter((profile) => Boolean(profile.name ?? profile.alias)),
+      source: "backend",
+    };
+  } catch {
+    return {
+      profiles: mockConnections,
+      source: "mock",
     };
   }
 }

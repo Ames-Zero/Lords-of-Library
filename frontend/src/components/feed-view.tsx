@@ -450,7 +450,7 @@ export function FeedView() {
           </svg>
         </button>
         <button
-          className="inline-flex h-12 w-12 cursor-pointer items-center justify-center rounded-full border border-transparent bg-[#d4a574] text-white shadow-sm transition-all duration-200 hover:bg-[#bc8f63] hover:shadow-md"
+          className="inline-flex opacity-0 h-12 w-12 items-center justify-center rounded-full border border-transparent bg-[#d4a574] text-white shadow-sm transition-all duration-200 hover:bg-[#bc8f63] hover:shadow-md"
           aria-label="Bookmark"
         >
           <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

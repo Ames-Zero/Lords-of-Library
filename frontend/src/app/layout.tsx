@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { DesktopLayoutNav, MobileLayoutNav } from "@/components/layout-nav";
+import { getViewerProfile } from "@/lib/api";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -17,11 +19,14 @@ export const metadata: Metadata = {
   description: "Discover and curate research.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const viewer = await getViewerProfile();
+  const avatarFallback = viewer.username.charAt(0).toUpperCase() || "D";
+
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full bg-[#f5f1eb] text-[#252525]">
@@ -37,37 +42,30 @@ export default function RootLayout({
             {/* Executive Avatar */}
             <div className="mb-8 pb-8 border-b border-[#e8e3dd]">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded bg-[#8b1f1f] flex items-center justify-center text-white font-bold text-sm">E</div>
+                {viewer.avatarUrl ? (
+                  <img
+                    src={viewer.avatarUrl}
+                    alt={`${viewer.username} avatar`}
+                    className="w-10 h-10 rounded object-cover"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded bg-[#8b1f1f] flex items-center justify-center text-white font-bold text-sm">
+                    {avatarFallback}
+                  </div>
+                )}
                 <div>
                   <div className="text-xs font-bold uppercase tracking-wide text-[#8b8b8b]">Executive Avatar</div>
-                  <div className="text-sm font-semibold text-[#252525]">The Ethereal Soubrette</div>
+                  <div className="text-sm font-semibold text-[#252525]">{viewer.username}</div>
                 </div>
               </div>
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 space-y-1 mb-8">
-              <a href="/" className="flex items-center gap-3 px-3 py-2 rounded text-sm font-semibold text-[#8b1f1f] bg-[#f5f1eb]">
-                <div className="w-5 text-center">●</div>
-                <span>FEED</span>
-              </a>
-              <a href="/saved" className="flex items-center gap-3 px-3 py-2 rounded text-sm font-semibold text-[#8b8b8b] hover:bg-[#f5f1eb]">
-                <div className="w-5 text-center">■</div>
-                <span>QUEUE</span>
-              </a>
-              <a href="/connections" className="flex items-center gap-3 px-3 py-2 rounded text-sm font-semibold text-[#8b8b8b] hover:bg-[#f5f1eb]">
-                <div className="w-5 text-center">▦</div>
-                <span>ANALYTICS</span>
-              </a>
-              <a href="/onboarding" className="flex items-center gap-3 px-3 py-2 rounded text-sm font-semibold text-[#8b8b8b] hover:bg-[#f5f1eb]">
-                <div className="w-5 text-center">◉</div>
-                <span>PROFILE</span>
-              </a>
-            </nav>
+            <DesktopLayoutNav />
 
-            {/* New Quest Button */}
+            {/* Logout Button */}
             <button className="w-full px-4 py-3 bg-[#8b1f1f] text-white font-bold uppercase text-xs tracking-wide rounded hover:bg-[#a52a2a] transition-colors">
-              + NEW QUEST
+              Logout
             </button>
           </aside>
 
@@ -77,24 +75,7 @@ export default function RootLayout({
           </main>
 
           {/* Mobile Bottom Navigation */}
-          <nav className="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-4 bg-white/70 backdrop-blur-xl border-t border-[#e8e3dd] rounded-t-3xl">
-            <a href="/" className="flex flex-col items-center justify-center text-[#8b1f1f] gap-1">
-              <span className="text-lg">●</span>
-              <span className="text-[10px] font-semibold uppercase tracking-tight">Feed</span>
-            </a>
-            <a href="/saved" className="flex flex-col items-center justify-center text-[#8b8b8b] hover:text-[#8b1f1f] transition-colors gap-1 opacity-70">
-              <span className="text-lg">■</span>
-              <span className="text-[10px] font-semibold uppercase tracking-tight">Queue</span>
-            </a>
-            <a href="/connections" className="flex flex-col items-center justify-center text-[#8b8b8b] hover:text-[#8b1f1f] transition-colors gap-1 opacity-70">
-              <span className="text-lg">▦</span>
-              <span className="text-[10px] font-semibold uppercase tracking-tight">Analytics</span>
-            </a>
-            <a href="/onboarding" className="flex flex-col items-center justify-center text-[#8b8b8b] hover:text-[#8b1f1f] transition-colors gap-1 opacity-70">
-              <span className="text-lg">◉</span>
-              <span className="text-[10px] font-semibold uppercase tracking-tight">Profile</span>
-            </a>
-          </nav>
+          <MobileLayoutNav />
         </div>
       </body>
     </html>

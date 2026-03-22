@@ -55,15 +55,25 @@ export function SavedView() {
       ) : (
         <div className="space-y-3">
           {papers.map((paper) => (
-            <article key={paper.id} className="card-panel rounded-2xl p-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">{paper.primaryCategory}</p>
-              <h3 className="mt-1 text-base font-semibold text-stone-900">{paper.title}</h3>
-              <p className="mt-1 text-sm text-stone-700">{paper.authors.join(", ")}</p>
+            <article key={paper.id} className="card-panel rounded-2xl p-5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-stone-900 px-2 py-1 text-xs font-semibold text-stone-50">
+                  {paper.primaryCategory}
+                </span>
+                <span className="text-xs text-stone-500">
+                  {new Date(paper.publishedAt).toLocaleDateString()}
+                </span>
+              </div>
+              <h3 className="mt-3 text-base font-semibold text-stone-900">{paper.title}</h3>
+              <p className="mt-2 text-sm text-stone-700">
+                {paper.abstract.length > 220 ? `${paper.abstract.slice(0, 220)}...` : paper.abstract}
+              </p>
+              <p className="mt-2 text-sm text-stone-600">{paper.authors.join(", ")}</p>
               <a
                 href={paper.arxivUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-3 inline-flex text-sm font-medium text-teal-700 hover:text-teal-800"
+                className="mt-4 inline-flex rounded-full bg-stone-900 px-3 py-1.5 text-sm font-medium text-stone-50 transition hover:bg-stone-800"
               >
                 Open on arXiv
               </a>

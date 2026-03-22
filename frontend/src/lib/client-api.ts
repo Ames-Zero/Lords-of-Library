@@ -7,7 +7,7 @@
 import type { ConnectionProfile, Paper } from "@/lib/types";
 import { mockConnections, mockFeed } from "@/lib/mock-data";
 
-const API_BASE = "/api"; // Uses Next.js proxy at /api/[...path]
+const API_BASE = process.env.NEXT_PUBLIC_BACKEND_API_BASE_URL || "http://localhost:8000"; // Uses Next.js proxy at /api/[...path]
 
 export interface SwipePayload {
   paper_id: string;
@@ -59,7 +59,7 @@ export async function fetchNextPapers(): Promise<Paper[]> {
   try {
     const response = await fetch(`${API_BASE}/feed/next`, {
       method: "GET",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "Accept": "*/*" },
     });
 
     if (!response.ok) {
@@ -67,7 +67,7 @@ export async function fetchNextPapers(): Promise<Paper[]> {
       return mockFeed;
     }
 
-    const papers = (await response.json()) as BackendPaper[];
+    const papers = (await response.text());
     if (!Array.isArray(papers)) {
       console.warn("Feed response was not an array. Using demo data.");
       return mockFeed;

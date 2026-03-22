@@ -2,10 +2,7 @@
 
 import { useEffect, useMemo, useState, useRef } from "react";
 import { mockFeed, topics } from "@/lib/mock-data";
-
-const onboardingTopicsKey = "lol.onboarding.topics";
-const onboardingProfileKey = "lol.onboarding.profile";
-const onboardingModalSeenKey = "lol.onboarding.modalSeen";
+import { onboardingModalSeenKey, onboardingProfileKey, onboardingTopicsKey } from "@/lib/storage-keys";
 
 export default function Home() {
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
